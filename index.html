@@ -2,20 +2,61 @@
 <html lang="en">
 
   <!-- A VR Purple Bacteria Museum Pilot Prototype by Sonia Rodriguez - Jose L. Rubio - D.Puyol - URJC-->
-  
+
 <head>
   <meta charset="utf-8" />
   <title>Purple Bacteria Museum</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-extras@v6.1.0/dist/aframe-extras.min.js"></script>
   <link rel="stylesheet" href="./style.css">
 
+  <style>
+    /* ===== Mobile movement overlay (only shows on touch devices) ===== */
+    .mobile-controls {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;           /* default hidden */
+      gap: 12px;
+      z-index: 9999;           /* above WebGL canvas */
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    .mobile-controls button {
+      font: 600 16px/1.1 system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      padding: 14px 18px;
+      border-radius: 12px;
+      border: none;
+      background: rgba(255,255,255,0.88);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+    }
+
+    .mobile-controls button:active {
+      transform: translateY(1px);
+    }
+
+    /* Show only when a coarse pointer is present (phones/tablets) */
+    @media (pointer: coarse) {
+      .mobile-controls { display: flex; }
+    }
+
+    /* Ensure the canvas allows drag-look gestures on mobile */
+    canvas.a-canvas {
+      touch-action: none; /* A-Frame expects this for look-controls */
+    }
+  </style>
+
   <!-- ********************************* -->
-  <!--        Scripts Head      -->        
+  <!--        Scripts Head      -->
   <!-- ********************************* -->
-  
+
   <script>
+  // ========= keep your existing components (unchanged) =========
   AFRAME.registerComponent('show-on-near', {
     schema: {
       target:   { type: 'selector' },
@@ -103,7 +144,6 @@
     }
   });
 
-  // In-world video audio toggle component (unchanged behavior)
   AFRAME.registerComponent('video-audio-toggle', {
     schema: { video: { type: 'selector' }, label: { type: 'selector' } },
     init() {
@@ -142,12 +182,11 @@
     }
   });
 
-  // Toggle panel + play/pause voiceover; with ironclad first-click unlock
   AFRAME.registerComponent('toggle-entity-visibility', {
     schema: {
-      target:   { type: 'selector' },          // entity to show/hide
-      label:    { type: 'selector' },          // label entity to update
-      sound:    { type: 'selector', default: null }, // <a-sound> to control
+      target:   { type: 'selector' },
+      label:    { type: 'selector' },
+      sound:    { type: 'selector', default: null },
       playText: { default: 'Play' },
       pauseText:{ default: 'Pause' }
     },
@@ -158,7 +197,7 @@
       this.el.addEventListener('click', this._onClick);
       this.el.addEventListener('mouseenter', this._onEnter);
       this.el.addEventListener('mouseleave', this._onLeave);
-      this.updateLabel(); // start as "Play"
+      this.updateLabel();
     },
     unlockAudioIfNeeded() {
       try {
@@ -172,17 +211,14 @@
       const soundCmp = this.data.sound && this.data.sound.components ? this.data.sound.components.sound : null;
       if (!t) return;
 
-      // Ensure audio context is running (first click on iOS/Chrome)
       this.unlockAudioIfNeeded();
 
       const visibleNow = !!t.getAttribute('visible');
 
       if (visibleNow) {
-        // Hide + pause
         t.setAttribute('visible', false);
         if (soundCmp) { try { soundCmp.pauseSound(); } catch(e) {} }
       } else {
-        // Show + play/resume (non-looping)
         t.setAttribute('visible', true);
         if (soundCmp) {
           try {
@@ -213,27 +249,16 @@
     }
   });
 
-  /* ============================================
-     NEW: "Lava lamp" color drift for GLTF meshes
-     - Smoothly cycles hue within a range (blue→purple)
-     - Gentle variation in saturation and lightness
-     - Works on textured materials (multiplies base color)
-  ============================================ */
   AFRAME.registerComponent('lava-lamp-color', {
     schema: {
-      // Hue range [0..1] (HSL). Defaults ≈ blue (0.62) → purple (0.78).
       hueMin:   {default: 0.62},
       hueMax:   {default: 0.78},
-      // Base saturation/lightness and breathing amplitudes.
       sat:      {default: 0.85},
       light:    {default: 0.55},
       satAmp:   {default: 0.10},
       lightAmp: {default: 0.08},
-      // Overall animation speed (cycles per second-ish).
       speed:    {default: 0.08},
-      // Emissive strength so it “reads” under dim light.
       emissive: {default: 0.35},
-      // Optional opacity breathing (0 disables).
       opacityBreath: {default: 0.0}
     },
     init() {
@@ -245,7 +270,6 @@
       this.el.addEventListener('object3dset', this.captureMaterials);
       this.captureMaterials();
 
-      // Prime initial color.
       const c = new THREE.Color();
       c.setHSL(this.data.hueMin, this.data.sat, this.data.light);
       this.applyColor(c, 1.0);
@@ -258,7 +282,7 @@
         if (n.isMesh && n.material) {
           const mats = Array.isArray(n.material) ? n.material : [n.material];
           mats.forEach(m => {
-            m.transparent = true; // allow subtle opacity breathing
+            m.transparent = true;
             m.needsUpdate = true;
             this._materials.push(m);
           });
@@ -266,10 +290,8 @@
       });
     },
     _smooth(u){ return u*u*(3 - 2*u); },
-
     tick(timeMs) {
       if (!this._materials.length) return;
-
       const t = (timeMs || 0) / 1000;
       const d = this.data;
 
@@ -307,10 +329,59 @@
       this.el.removeEventListener('object3dset', this.captureMaterials);
     }
   });
+
+  // ========= NEW: Mobile-friendly rig movement via overlay buttons =========
+  // Usage: add rig-touch-move to the RIG. Exposes setForward(true/false), setBackward(true/false).
+  AFRAME.registerComponent('rig-touch-move', {
+    schema: {
+      speed: { default: 2.2 }   // meters per second
+    },
+    init() {
+      this._forward = false;
+      this._backward = false;
+      this._v = new THREE.Vector3();
+      this._dir = new THREE.Vector3();
+
+      // Expose simple API to window so the HTML buttons can call it.
+      const self = this;
+      this.el.sceneEl.addEventListener('loaded', () => {
+        window.__rigTouchMove = {
+          setForward: (b)=>{ self._forward = !!b; },
+          setBackward:(b)=>{ self._backward = !!b; }
+        };
+      });
+    },
+    tick(time, deltaMs) {
+      const rig = this.el;
+      const cam = rig.querySelector('[camera]');
+      if (!cam) return;
+
+      const dt = Math.min(deltaMs || 0, 50) / 1000; // clamp to avoid spikes
+      if (!this._forward && !this._backward) return;
+
+      // Get camera forward in world space (y=0 to stay level)
+      cam.object3D.getWorldDirection(this._dir);
+      this._dir.y = 0;
+      this._dir.normalize();
+
+      const dir = (this._forward ? 1 : 0) + (this._backward ? -1 : 0);
+      this._v.copy(this._dir).multiplyScalar(dir * this.data.speed * dt);
+
+      const p = rig.object3D.position;
+      p.add(this._v);
+    }
+  });
   </script>
 </head>
-  
+
 <body>
+  <!-- ===== Mobile overlay controls (outside canvas, won't block look/move) ===== -->
+  <div class="mobile-controls" id="mobileControls" aria-hidden="true">
+    <!-- Labels swapped per your request -->
+    <button id="btnForward" type="button">Back</button>
+    <button id="btnBack" type="button">Forward</button>
+  </div>
+
   <a-scene
     renderer="colorManagement: true; physicallyCorrectLights: true; toneMapping: ACESFilmic; exposure: 0.85; shadowMap: true;"
     background="color: #9aa7b3"
@@ -331,7 +402,7 @@
              loop
              muted
              playsinline
-             crossoin="anonymous"
+             crossOrigin="anonymous"
              preload="auto">
       </video>
 
@@ -340,73 +411,61 @@
       <audio id="museum-voiceover-1" src="./asset/museum_voiceover_1.mpeg" preload="auto"></audio>
       <audio id="museum-voiceover-2" src="./asset/museum_voiceover_2.mpeg" preload="auto"></audio>
 
-      <!-- NEW: SPONSORS IMAGE -->
-      <img id="sponsors" src="./asset/sponsors_logos.jpeg" crossoin="anonymous">
+      <!-- SPONSORS IMAGE -->
+      <img id="sponsors" src="./asset/sponsors_logos.jpeg" crossOrigin="anonymous">
     </a-assets>
 
     <!-- Global lights — darker mood -->
     <a-entity light="type: ambient; intensity: 0.6; color: #ffffff"></a-entity>
     <a-entity light="type: hemisphere; intensity: 0.12; color: #dfe7ef; groundColor: #39454f"></a-entity>
 
-    <!-- ============================================== -->
-    <!-- SPOTLIGHTS — one per major element (like planet) -->
-    <!-- ============================================== -->
-
-    <!-- BIG SCREEN spotlight (aimed at the screen) -->
+    <!-- SPOTLIGHTS -->
     <a-entity id="screen-spot"
               position="2 4 2"
               light="type: spot; intensity: 3; angle: 30; penumbra: 0.6; distance: 24; decay: 1; color: #ffffff; castShadow: false; target: #video-screen">
     </a-entity>
 
-    <!-- PLANET spotlight (aimed at the planet) -->
     <a-entity id="planet-spot"
               position="3 4 0.8"
               light="type: spot; intensity: 2.8; angle: 35; penumbra: 0.6; distance: 18; decay: 1; color: #fff3e6; castShadow: false; target: #planet">
     </a-entity>
 
-    <!-- STATUE spotlight -->
     <a-entity id="statue-spot"
               position="-2.2 4.2 -8.4"
               light="type: spot; intensity: 2.6; angle: 32; penumbra: 0.55; distance: 20; decay: 1; color: #eae8ff; castShadow: false; target: #animation_statue">
     </a-entity>
 
-    <!-- ELIXIR CYLINDER spotlight -->
-    <a-entity id="elixir-spot" 
-              position="6.3 8 -8.4" 
+    <a-entity id="elixir-spot"
+              position="6.3 8 -8.4"
               light="type: spot; intensity: 6; angle: 90; penumbra: 0.55; distance: 50; decay: 1; color: #e7f1ff; castShadow: false; target: #Elixir_Cylinder">
     </a-entity>
 
-    <!-- SPONSORS WALL spotlight -->
     <a-entity id="sponsors-spot"
               position="8.8 4.6 -2"
               light="type: spot; intensity: 2.8; angle: 28; penumbra: 0.2; distance: 14; decay: 1; color: #fffdf0; castShadow: false;target: #sponsors-wall">
     </a-entity>
 
-    <!-- CRYSTALS spotlight -->
-    <a-entity id="crystals-spot" 
-              position="0 8 -9.5" 
+    <a-entity id="crystals-spot"
+              position="0 8 -9.5"
               light="type: spot; intensity: 10; angle: 90; penumbra: 0.55; distance: 30; decay: 1; color: #e8f3ff; castShadow: false;">
     </a-entity>
 
-    <!-- MUSEUM ROOF spotlight -->
-    <a-entity id="roof-spot" 
-              position="1 9 9.5" 
+    <a-entity id="roof-spot"
+              position="1 9 9.5"
               light="type: spot; intensity: 4.4; angle: 180; penumbra: 0.5; distance: 30; decay: 1; color: #ffffff; castShadow: false; target: #roof">
     </a-entity>
 
-    <!-- MUSEUM SHELL / WALLS spotlight -->
     <a-entity id="shell-spot"
               position="-2 8 8"
               light="type: spot; intensity: 1.8; angle: 55; penumbra: 0.55; distance: 35; decay: 1; color: #f6f7fb; castShadow: false; target: #museum-shell">
     </a-entity>
 
-    <!-- FLOOR spotlight (soft, wide) -->
     <a-entity id="floor-spot"
               position="0 5 6"
               light="type: spot; intensity: 1.2; angle: 70; penumbra: 0.7; distance: 30; decay: 1; color: #ffffff; castShadow: false; target: #floor">
     </a-entity>
 
-    <!-- TEXT PANELS: gentle point lights so text is readable -->
+    <!-- TEXT lights -->
     <a-entity id="planet-text-light" position="5 2.2 -0.2" light="type: point; intensity: 0.6; distance: 6; decay: 2; color: #ffffff"></a-entity>
     <a-entity id="elixir-text-light" position="8.4 2.2 -9"   light="type: point; intensity: 0.6; distance: 6; decay: 2; color: #ffffff"></a-entity>
     <a-entity id="statue-text-light" position="-2.1 2.5 -9"  light="type: point; intensity: 0.6; distance: 6; decay: 2; color: #ffffff"></a-entity>
@@ -414,7 +473,7 @@
     <!-- Background music -->
     <a-sound id="bg-sound" src="./asset/music.mp3" autoplay="false" loop="true" volume="0.22" position="0 1.6 0"></a-sound>
 
-    <!-- Modelos (now with an ID for lighting target) -->
+    <!-- Models -->
     <a-entity id="crystals" gltf-model="#mdl-cristales" position="0 6 10" scale="1 1 1" animation-mixer shadow="cast: true; receive: true"></a-entity>
 
     <!-- Planeta -->
@@ -428,7 +487,7 @@
               animation__float="property: position; dir: alternate; dur: 4000; easing: easeInOutSine; loop: true; to: 3 2.05 0">
     </a-entity>
 
-    <!-- Estatua Animación (now with lava-lamp color drift) -->
+    <!-- Estatua -->
     <a-entity id="animation_statue"
               gltf-model="#animacion_bacteria_color"
               position="0 2.6 -10.5"
@@ -437,7 +496,7 @@
               lava-lamp-color="hueMin: 0.62; hueMax: 0.78; sat: 0.9; light: 0.55; satAmp: 0.12; lightAmp: 0.1; speed: 0.08; emissive: 0.35; opacityBreath: 0">
     </a-entity>
 
-    <!-- NEW: Statue voiceover, text group and Play button -->
+    <!-- Statue voiceover and UI -->
     <a-sound id="statue-voice"
              src="#museum-voiceover-2"
              autoplay="false"
@@ -471,9 +530,8 @@
                 text="value: Play; align: center; width: 2.2; color: #111; wrapCount: 20">
       </a-entity>
     </a-entity>
-    <!-- /NEW statue block -->
 
-    <!-- Estatua Cilindro de Elixir -->
+    <!-- Elixir -->
     <a-entity id="Elixir_Cylinder"
               gltf-model="#Purple_Elixir_Cylinder"
               position="6.5 2.3 -10.7"
@@ -481,22 +539,19 @@
               shadow="cast: true; receive: true">
     </a-entity>
 
-    <!-- Pedestal bajo el planeta (SIEMPRE visible) -->
+    <a-sound id="planet-voice"
+             src="#planet-voiceover"
+             autoplay="false"
+             loop="false"
+             position="0 1 0"
+             volume="1.8">
+    </a-sound>
+
     <a-entity id="planet-pedestal" position="3 0 -2" shadow="cast: true; receive: true">
       <a-cylinder position="0 0.05 0" radius="1.05" height="0.1" color="#7f8994" material="metalness: 0.2; roughness: 0.85" shadow="receive: true"></a-cylinder>
       <a-cylinder position="0 0.3 0"  radius="0.9"  height="0.5" color="#9aa3ad" material="metalness: 0.2; roughness: 0.6"  shadow="cast: true; receive: true"></a-cylinder>
       <a-cylinder position="0 0.58 0" radius="0.7"  height="0.06" color="#cfd5db" material="metalness: 0.15; roughness: 0.4" shadow="cast: true; receive: true"></a-cylinder>
 
-      <!-- Voiceover sound (positional). Louder and non-looping -->
-      <a-sound id="planet-voice"
-               src="#planet-voiceover"
-               autoplay="false"
-               loop="false"
-               position="0 1 0"
-               volume="1.8">
-      </a-sound>
-
-      <!-- In-world PLAY/PAUSE button next to pedestal -->
       <a-entity id="info-play-button" position="0 0.8 1" rotation="0 0 0">
         <a-plane width="1.2" height="0.45" color="#ffffff"
                  material="transparent: true; opacity: 0.7"
@@ -510,7 +565,6 @@
       </a-entity>
     </a-entity>
 
-    <!-- Texto + fondo (grupo) — controlado por el botón (empieza oculto) -->
     <a-entity id="planet-text-group"
               position="5 1.6 -0.2"
               rotation="0 -25 0"
@@ -520,13 +574,11 @@
                 text="value: ; align: left; wrapCount: 50; width: 3.5; color: #FFFFFF; opacity: 1"></a-entity>
     </a-entity>
 
-    <!-- BIG SCREEN with the video + in-world mute/unmute button -->
+    <!-- BIG SCREEN video -->
     <a-entity id="screen-cluster" position="2.8 0 5" rotation="0 180 0" shadow="cast: false; receive: true">
-      <!-- Background frame behind the video (receives light/shadows) -->
       <a-plane id="screen-frame" position="0 3 -2.02" width="8.6" height="4.6" color="#111"
                material="metalness: 0.1; roughness: 0.9" shadow="receive: true"></a-plane>
 
-      <!-- The actual video surface (lit so the spotlight affects it) -->
       <a-video id="video-screen"
                src="#museum-video"
                position="0 3 -2"
@@ -537,7 +589,6 @@
                shadow="receive: true">
       </a-video>
 
-      <!-- In-world mute/unmute button, placed to the lower-right of the screen -->
       <a-entity id="video-audio-button" position="3.9 0.8 -1.95" rotation="0 0 0">
         <a-plane width="1.2" height="0.45" color="#ffffff" material="transparent: true; opacity: 0.7"
                  class="clickable"
@@ -547,86 +598,80 @@
       </a-entity>
     </a-entity>
 
-    <!-- Museum roof receives shadows (now given an ID for targeting) -->
+    <!-- Architecture -->
     <a-entity id="roof" gltf-model="#museum_roof" position="1 8 8.3" scale="0.8 0.8 0.8" animation-mixer shadow="receive: true"></a-entity>
-    
-    <!-- Museum shell / walls (ID added for targeting) -->
     <a-entity id="museum-shell" gltf-model="#mdl-techo_paredes_2" position="0 6 10" scale="1 1 1" animation-mixer shadow="receive: true"></a-entity>
-
-    <!-- Museum Floor (ID added for targeting) -->
     <a-entity id="floor" gltf-model="#museum_floor_dark" position="0 6.05 9" scale="1 1 1" animation-mixer shadow="receive: true"></a-entity>
 
-    <!-- ============================== -->
-    <!-- NEW: ELIXIR PLAY BUTTON + TEXT -->
-    <!-- ============================== -->
-
-    <!-- Positional voiceover for the Elixir text panel -->
-    <a-sound id="elixir-voice"
-             src="#museum-voiceover-1"
-             autoplay="false"
-             loop="false"
-             position="6.5 2.0 -10.7"
-             volume="1.8">
-    </a-sound>
-
-    <!-- Text panel (hidden by default), slightly to the right of the cylinder -->
-    <a-entity id="elixir-text-group"
-              position="8.4 2.1 -9"
-              rotation="0 -15 0"
-              visible="false"
-              shadow="receive: true">
-      <a-plane width="3.6" height="3.4" color="#000000"
-               material="transparent: true; opacity: 0.45"></a-plane>
-      <a-entity id="elixir-text"
-                position="0 0 0.01"
-                text="value: ; align: left; wrapCount: 50; width: 3.5; color: #FFFFFF; opacity: 1">
-      </a-entity>
-    </a-entity>
-
-    <!-- Play/Pause button placed IN FRONT of the Elixir Cylinder (toward the camera) -->
-    <a-entity id="elixir-play-button" position="6.5 1.2 -9.2" rotation="0 0 0">
-      <a-plane width="1.2" height="0.45" color="#ffffff"
-               material="transparent: true; opacity: 0.7"
-               class="clickable"
-               toggle-entity-visibility="target: #elixir-text-group; label: #elixir-play-label; sound: #elixir-voice; playText: Play; pauseText: Pause"
-               shadow="receive: true">
-      </a-plane>
-      <a-entity id="elixir-play-label"
-                position="0 0 0.01"
-                text="value: Play; align: center; width: 2.2; color: #111; wrapCount: 20">
-      </a-entity>
-    </a-entity>
-
-    <!-- ============================== -->
-    <!-- SPONSORS WALL (image panel) -->
-    <!-- ============================== -->
+    <!-- SPONSORS WALL -->
     <a-entity id="sponsors-wall" position="10.1 2 -2" rotation="0 -90 0" shadow="receive: true">
-      <!-- Frame behind the logos -->
       <a-plane width="3.2" height="2.0" color="#0d0f12"
                material="metalness: 0.1; roughness: 0.9"
                position="0 0 -0.02"
                shadow="receive: true"></a-plane>
-      <!-- The sponsors image itself -->
       <a-image src="#sponsors"
                width="3.0" height="1.8"
                material="shader: standard; metalness: 0.0; roughness: 0.95"
                shadow="receive: true"></a-image>
-      <!-- Soft area light feel via emissive overlay -->
       <a-plane width="3.0" height="1.8" position="0 0 0.01"
                material="color: #ffffff; transparent: true; opacity: 0.06"></a-plane>
     </a-entity>
 
-    <!-- Cámara (WASD + look on the SAME entity) -->
-    <a-entity id="" position="7.5 2 -2" rotation="0 -90 0">
-      <a-entity id="camera" camera look-controls wasd-controls="acceleration: 50; fly: false" cursor="rayOrigin: mouse"></a-entity>
+    <!-- ============== CAMERA RIG ============== -->
+    <!-- We move THIS rig. Camera handles look. -->
+    <a-entity id="rig"
+              position="7.5 2 -2"
+              rotation="0 -90 0"
+              rig-touch-move="speed: 2.6"
+              wasd-controls="acceleration: 60; fly: false">
+      <a-entity id="camera"
+                camera
+                look-controls="touchEnabled: true"
+                cursor="rayOrigin: mouse"
+                raycaster="objects: .clickable; far: 20">
+      </a-entity>
     </a-entity>
   </a-scene>
 
   <!-- ********************************* -->
-  <!--        Scripts Footer      -->        
+  <!--        Scripts Footer      -->
   <!-- ********************************* -->
-  
+
   <script>
+  // ===== Mobile overlay button wiring =====
+  (function () {
+    const fwd = document.getElementById('btnForward');
+    const back = document.getElementById('btnBack');
+
+    // Helper to bind both mouse and touch starts/ends
+    function bindHold(el, on, off) {
+      const start = (e)=>{ e.preventDefault(); on(); };
+      const end   = (e)=>{ e.preventDefault(); off(); };
+
+      el.addEventListener('mousedown', start);
+      el.addEventListener('mouseup',   end);
+      el.addEventListener('mouseleave',end);
+
+      el.addEventListener('touchstart', start, {passive:false});
+      el.addEventListener('touchend',   end,   {passive:false});
+      el.addEventListener('touchcancel',end,   {passive:false});
+    }
+
+    // Only activate if coarse pointer (mobile/tablet)
+    const isCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+
+    if (isCoarse) {
+      bindHold(fwd,
+        ()=> window.__rigTouchMove && window.__rigTouchMove.setForward(true),
+        ()=> window.__rigTouchMove && window.__rigTouchMove.setForward(false)
+      );
+      bindHold(back,
+        ()=> window.__rigTouchMove && window.__rigTouchMove.setBackward(true),
+        ()=> window.__rigTouchMove && window.__rigTouchMove.setBackward(false)
+      );
+    }
+  })();
+
   // Background music (start on first user interaction once)
   function playSound() {
     const sound = document.querySelector("#bg-sound");
@@ -636,40 +681,25 @@
   }
   document.addEventListener("click", playSound, { once: true });
 
-  // One-time audio unlock + voiceover prime (so first click on Play works)
+  // One-time audio unlock + voiceover prime
   function unlockAndPrimeVoice() {
     const scene = document.querySelector('a-scene');
     try {
       const ctx = scene && scene.audioListener && scene.audioListener.context;
       if (ctx && ctx.state !== 'running') ctx.resume();
     } catch(e) {}
-    // Prime planet voice
-    const voice = document.querySelector('#planet-voice');
-    if (voice && voice.components && voice.components.sound) {
-      try {
-        voice.components.sound.stopSound();
-        voice.components.sound.playSound();
-        voice.components.sound.pauseSound();
-      } catch(e) {}
-    }
-    // Prime elixir voice
-    const elixirVoice = document.querySelector('#elixir-voice');
-    if (elixirVoice && elixirVoice.components && elixirVoice.components.sound) {
-      try {
-        elixirVoice.components.sound.stopSound();
-        elixirVoice.components.sound.playSound();
-        elixirVoice.components.sound.pauseSound();
-      } catch(e) {}
-    }
-    // Prime statue voice (NEW)
-    const statueVoice = document.querySelector('#statue-voice');
-    if (statueVoice && statueVoice.components && statueVoice.components.sound) {
-      try {
-        statueVoice.components.sound.stopSound();
-        statueVoice.components.sound.playSound();
-        statueVoice.components.sound.pauseSound();
-      } catch(e) {}
-    }
+
+    const ids = ['#planet-voice', '#elixir-voice', '#statue-voice'];
+    ids.forEach(sel=>{
+      const s = document.querySelector(sel);
+      if (s && s.components && s.components.sound) {
+        try {
+          s.components.sound.stopSound();
+          s.components.sound.playSound();
+          s.components.sound.pauseSound();
+        } catch(e) {}
+      }
+    });
   }
   document.addEventListener('click', unlockAndPrimeVoice, { once: true, passive: true });
   document.addEventListener('touchend', unlockAndPrimeVoice, { once: true, passive: true });
@@ -688,7 +718,7 @@
     document.addEventListener('touchend', resume, { passive: true });
   }
 
-  // Planet text (existing)
+  // Planet text
   const txt = `Over three billion years ago, Earth was a very different place: young oceans, almost no oxygen, and layers of water where light filtered gently down. In that setting, life began to use sunlight in simple ways.
 
 Among those early light-users were the purple bacteria. They carry out photosynthesis without releasing oxygen. Instead of splitting water, they use substances like hydrogen sulphide or organic compounds. That’s why they thrive where there is light but little oxygen—in microbial mats and stratified waters. They offer a glimpse of what photosynthesis may have looked like before the version that oxygenated the planet.
@@ -700,7 +730,7 @@ Much later came the cyanobacteria with the “modern” form of photosynthesis t
     textEl.setAttribute('text', Object.assign({}, current, { value: txt }));
   }
 
-  // Elixir text (NEW)
+  // Elixir text
   const elixirTxt = `Some purple bacteria, specifically the non-sulphur types, are able to produce hydrogen when exposed to light. The process is called photofermentation: instead of needing high temperatures or pressures, these bacteria operate at room temperature and without oxygen, using light energy as the main “engine” and consuming simple organic compounds (for example, organic acids). For this reason, it is considered a pathway with low external energy input compared with industrial methods such as electrolysis, where electricity is the major cost.
 
 In practice, they are grown in photobioreactors: illuminated vessels where light and organic matter “go in” and hydrogen gas “comes out”. Groups such as Rhodobacter and Rhodopseudomonas are the most studied. The advantage is twofold: besides producing H₂, these bacteria can use carbon-rich waste streams (wastewater or agri-food by-products), turning “leftovers” into an energy resource. It is an active line of research within the circular economy and wastewater treatment, precisely because light provides much of the energy the system needs.`;
@@ -710,7 +740,7 @@ In practice, they are grown in photobioreactors: illuminated vessels where light
     elixirTextEl.setAttribute('text', Object.assign({}, current, { value: elixirTxt }));
   }
 
-  // Statue text (NEW)
+  // Statue text
   const statueTxt = `Why purple bacteria change colour
 
 The colour of these bacteria depends on their pigment mix. They contain bacteriochlorophylls, which harvest light and push the tone towards purples/magenta, and carotenoids, which act as photoprotection and add oranges and reds. It isn’t a fixed dye: the cell adjusts how much of each pigment it makes according to its environment—like moving sliders on an equaliser. How those pigments are packed into the light-harvesting complexes also shapes what we see.
@@ -726,11 +756,3 @@ The palette is broad and varies by species and growth stage: pale pink, rose, ma
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
