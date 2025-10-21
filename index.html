@@ -56,7 +56,9 @@
   <!-- ********************************* -->
 
   <script>
-  // ========= keep your existing components (unchanged) =========
+  /* =========================
+     Existing components
+  ==========================*/
   AFRAME.registerComponent('show-on-near', {
     schema: {
       target:   { type: 'selector' },
@@ -330,8 +332,9 @@
     }
   });
 
-  // ========= NEW: Mobile-friendly rig movement via overlay buttons =========
-  // Usage: add rig-touch-move to the RIG. Exposes setForward(true/false), setBackward(true/false).
+  /* =========================
+     NEW: Mobile-friendly rig
+  ==========================*/
   AFRAME.registerComponent('rig-touch-move', {
     schema: {
       speed: { default: 2.2 }   // meters per second
@@ -394,7 +397,7 @@
       <a-asset-item id="museum_roof" src="./asset/museum_roof.glb"></a-asset-item>
       <a-asset-item id="museum_floor_dark" src="./asset/museum_floor_light.glb"></a-asset-item>
       <a-asset-item id="animacion_bacteria_color" src="./asset/ANIMACION_bacteria_color_2.glb"></a-asset-item>
-      <a-asset-item id="Purple_Elixir_Cylinder" src="./asset/Purple_Elixir_Cylinder.glb"></a-asset-item>
+      <a-asset-item id="Purple__Cylinder" src="./asset/Purple__Cylinder.glb"></a-asset-item>
 
       <!-- VIDEO ASSET (muted for autoplay) -->
       <video id="museum-video"
@@ -435,9 +438,9 @@
               light="type: spot; intensity: 2.6; angle: 32; penumbra: 0.55; distance: 20; decay: 1; color: #eae8ff; castShadow: false; target: #animation_statue">
     </a-entity>
 
-    <a-entity id="elixir-spot"
+    <a-entity id="-spot"
               position="6.3 8 -8.4"
-              light="type: spot; intensity: 6; angle: 90; penumbra: 0.55; distance: 50; decay: 1; color: #e7f1ff; castShadow: false; target: #Elixir_Cylinder">
+              light="type: spot; intensity: 6; angle: 90; penumbra: 0.55; distance: 50; decay: 1; color: #e7f1ff; castShadow: false; target: #_Cylinder">
     </a-entity>
 
     <a-entity id="sponsors-spot"
@@ -510,7 +513,7 @@
               rotation="0 10 0"
               visible="false"
               shadow="receive: true">
-      <a-plane width="3.8" height="3.8" color="#000000"
+      <a-plane width="3.8" height="5" color="#000000"
                material="transparent: true; opacity: 0.45"></a-plane>
       <a-entity id="statue-text"
                 position="0 0.4 0.01"
@@ -531,7 +534,11 @@
       </a-entity>
     </a-entity>
 
-    <!-- Elixir -->
+    <!-- ============================== -->
+    <!-- ELIXIR: Model + VO + UI (RESTORED) -->
+    <!-- ============================== -->
+
+    <!-- Elixir model -->
     <a-entity id="Elixir_Cylinder"
               gltf-model="#Purple_Elixir_Cylinder"
               position="6.5 2.3 -10.7"
@@ -539,19 +546,59 @@
               shadow="cast: true; receive: true">
     </a-entity>
 
-    <a-sound id="planet-voice"
-             src="#planet-voiceover"
+    <!-- Positional voiceover for the Elixir text panel -->
+    <a-sound id="elixir-voice"
+             src="#museum-voiceover-1"
              autoplay="false"
              loop="false"
-             position="0 1 0"
+             position="6.5 2.0 -10.7"
              volume="1.8">
     </a-sound>
 
+    <!-- Text panel (hidden by default), slightly to the right of the cylinder -->
+    <a-entity id="elixir-text-group"
+              position="8.4 2.1 -9"
+              rotation="0 -15 0"
+              visible="false"
+              shadow="receive: true">
+      <a-plane width="3.6" height="3.4" color="#000000"
+               material="transparent: true; opacity: 0.45"></a-plane>
+      <a-entity id="elixir-text"
+                position="0 0 0.01"
+                text="value: ; align: left; wrapCount: 50; width: 3.5; color: #FFFFFF; opacity: 1">
+      </a-entity>
+    </a-entity>
+
+    <!-- Play/Pause button placed IN FRONT of the Elixir Cylinder (toward the camera) -->
+    <a-entity id="elixir-play-button" position="6.5 1.2 -9.2" rotation="0 0 0">
+      <a-plane width="1.2" height="0.45" color="#ffffff"
+               material="transparent: true; opacity: 0.7"
+               class="clickable"
+               toggle-entity-visibility="target: #elixir-text-group; label: #elixir-play-label; sound: #elixir-voice; playText: Play; pauseText: Pause"
+               shadow="receive: true">
+      </a-plane>
+      <a-entity id="elixir-play-label"
+                position="0 0 0.01"
+                text="value: Play; align: center; width: 2.2; color: #111; wrapCount: 20">
+      </a-entity>
+    </a-entity>
+
+    <!-- Planet pedestal + UI -->
     <a-entity id="planet-pedestal" position="3 0 -2" shadow="cast: true; receive: true">
       <a-cylinder position="0 0.05 0" radius="1.05" height="0.1" color="#7f8994" material="metalness: 0.2; roughness: 0.85" shadow="receive: true"></a-cylinder>
       <a-cylinder position="0 0.3 0"  radius="0.9"  height="0.5" color="#9aa3ad" material="metalness: 0.2; roughness: 0.6"  shadow="cast: true; receive: true"></a-cylinder>
       <a-cylinder position="0 0.58 0" radius="0.7"  height="0.06" color="#cfd5db" material="metalness: 0.15; roughness: 0.4" shadow="cast: true; receive: true"></a-cylinder>
 
+      <!-- Planet voiceover (positional) -->
+      <a-sound id="planet-voice"
+               src="#planet-voiceover"
+               autoplay="false"
+               loop="false"
+               position="0 1 0"
+               volume="1.8">
+      </a-sound>
+
+      <!-- PLAY/PAUSE button next to pedestal -->
       <a-entity id="info-play-button" position="0 0.8 1" rotation="0 0 0">
         <a-plane width="1.2" height="0.45" color="#ffffff"
                  material="transparent: true; opacity: 0.7"
@@ -565,6 +612,7 @@
       </a-entity>
     </a-entity>
 
+    <!-- Planet text group -->
     <a-entity id="planet-text-group"
               position="5 1.6 -0.2"
               rotation="0 -25 0"
@@ -618,7 +666,6 @@
     </a-entity>
 
     <!-- ============== CAMERA RIG ============== -->
-    <!-- We move THIS rig. Camera handles look. -->
     <a-entity id="rig"
               position="7.5 2 -2"
               rotation="0 -90 0"
@@ -640,8 +687,8 @@
   <script>
   // ===== Mobile overlay button wiring =====
   (function () {
-    const fwd = document.getElementById('btnForward');
-    const back = document.getElementById('btnBack');
+    const fwd = document.getElementById('btnForward'); // label says "Back"
+    const back = document.getElementById('btnBack');   // label says "Forward"
 
     // Helper to bind both mouse and touch starts/ends
     function bindHold(el, on, off) {
