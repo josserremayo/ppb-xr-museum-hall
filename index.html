@@ -336,9 +336,7 @@
      NEW: Mobile-friendly rig
   ==========================*/
   AFRAME.registerComponent('rig-touch-move', {
-    schema: {
-      speed: { default: 2.2 }   // meters per second
-    },
+    schema: { speed: { default: 2.6 } }, // meters per second
     init() {
       this._forward = false;
       this._backward = false;
@@ -362,7 +360,7 @@
       const dt = Math.min(deltaMs || 0, 50) / 1000; // clamp to avoid spikes
       if (!this._forward && !this._backward) return;
 
-      // Get camera forward in world space (y=0 to stay level)
+      // Move along the camera's facing direction (level on Y)
       cam.object3D.getWorldDirection(this._dir);
       this._dir.y = 0;
       this._dir.normalize();
@@ -370,8 +368,7 @@
       const dir = (this._forward ? 1 : 0) + (this._backward ? -1 : 0);
       this._v.copy(this._dir).multiplyScalar(dir * this.data.speed * dt);
 
-      const p = rig.object3D.position;
-      p.add(this._v);
+      rig.object3D.position.add(this._v);
     }
   });
   </script>
@@ -380,7 +377,7 @@
 <body>
   <!-- ===== Mobile overlay controls (outside canvas, won't block look/move) ===== -->
   <div class="mobile-controls" id="mobileControls" aria-hidden="true">
-    <!-- Labels swapped per your request -->
+    <!-- Labels as you wanted -->
     <button id="btnForward" type="button">Back</button>
     <button id="btnBack" type="button">Forward</button>
   </div>
@@ -397,7 +394,7 @@
       <a-asset-item id="museum_roof" src="./asset/museum_roof.glb"></a-asset-item>
       <a-asset-item id="museum_floor_dark" src="./asset/museum_floor_light.glb"></a-asset-item>
       <a-asset-item id="animacion_bacteria_color" src="./asset/ANIMACION_bacteria_color_2.glb"></a-asset-item>
-      <a-asset-item id="Purple__Cylinder" src="./asset/Purple__Cylinder.glb"></a-asset-item>
+      <a-asset-item id="Purple_Elixir_Cylinder" src="./asset/Purple_Elixir_Cylinder.glb"></a-asset-item>
 
       <!-- VIDEO ASSET (muted for autoplay) -->
       <video id="museum-video"
@@ -438,9 +435,9 @@
               light="type: spot; intensity: 2.6; angle: 32; penumbra: 0.55; distance: 20; decay: 1; color: #eae8ff; castShadow: false; target: #animation_statue">
     </a-entity>
 
-    <a-entity id="-spot"
+    <a-entity id="elixir-spot"
               position="6.3 8 -8.4"
-              light="type: spot; intensity: 6; angle: 90; penumbra: 0.55; distance: 50; decay: 1; color: #e7f1ff; castShadow: false; target: #_Cylinder">
+              light="type: spot; intensity: 6; angle: 90; penumbra: 0.55; distance: 50; decay: 1; color: #e7f1ff; castShadow: false; target: #Elixir_Cylinder">
     </a-entity>
 
     <a-entity id="sponsors-spot"
@@ -513,7 +510,7 @@
               rotation="0 10 0"
               visible="false"
               shadow="receive: true">
-      <a-plane width="3.8" height="5" color="#000000"
+      <a-plane width="3.8" height="3.8" color="#000000"
                material="transparent: true; opacity: 0.45"></a-plane>
       <a-entity id="statue-text"
                 position="0 0.4 0.01"
@@ -535,7 +532,7 @@
     </a-entity>
 
     <!-- ============================== -->
-    <!-- ELIXIR: Model + VO + UI (RESTORED) -->
+    <!-- ELIXIR: Model + VO + UI -->
     <!-- ============================== -->
 
     <!-- Elixir model -->
@@ -666,16 +663,18 @@
     </a-entity>
 
     <!-- ============== CAMERA RIG ============== -->
+    <!-- Important: rig rotation is 0; camera handles look AND WASD. -->
     <a-entity id="rig"
               position="7.5 2 -2"
-              rotation="0 -90 0"
-              rig-touch-move="speed: 2.6"
-              wasd-controls="acceleration: 60; fly: false">
+              rotation="0 0 0"
+              rig-touch-move="speed: 2.6">
       <a-entity id="camera"
                 camera
                 look-controls="touchEnabled: true"
+                wasd-controls="acceleration: 60; fly: false"
                 cursor="rayOrigin: mouse"
-                raycaster="objects: .clickable; far: 20">
+                raycaster="objects: .clickable; far: 20"
+                rotation="0 -90 0">
       </a-entity>
     </a-entity>
   </a-scene>
